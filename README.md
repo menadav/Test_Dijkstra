@@ -1,4 +1,4 @@
-# 🚁 Fly-in
+# Fly-in
 
 ## Description
 
