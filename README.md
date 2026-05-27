@@ -1,64 +1,150 @@
-# **Fly-in**
+# 🚁 Fly-in
 
-### Description
-Fly-in is a strategic simulation designed to solve a complex logistical challenge:
-navigating a fleet of autonomous drones througha network of interconnected zones.
-The goal is to move all drones from a starting hub to a final destination in the fewest number
-of turns possible, acting as a high-level "traffic controller" for aerial logistics.
+> A multi-drone traffic simulation in Python — Dijkstra-based pathfinding with dynamic rerouting, zone capacity constraints, and real-time visualization.
 
-The project simulates a dynamic environment where drones must compete for space and time.
-It isn't just about finding the shortest path; it’s about smart scheduling.
-The system must decide when a drone should fly full speed, when it should take a longer "priority"
-route to avoid traffic, or when it’s safer to stay in place to let others pass.
-## Instructions
+---
 
-#### Installation
-This project requires Python 3.10 or later. It uses uv for dependency management. To install the necessary packages (pydantic, pygame, flake8 and mypy):
+## Description
 
-```
+**Fly-in** is a strategic simulation that solves a complex logistics challenge: routing a fleet of autonomous drones through a network of interconnected zones, from a starting hub to a final destination, **in the fewest turns possible**.
+
+The problem goes beyond shortest-path routing. Drones compete for limited zone capacity and link throughput, so the system must act as a smart traffic controller — deciding when a drone should fly full speed, take a longer priority route to avoid congestion, or wait in place to let others pass.
+
+The project is built around **Dijkstra's algorithm** extended with dynamic cost scaling, turn-by-turn reservation, and real-time recalculation to handle collisions.
+
+---
+
+## ✨ Features
+
+- **Dynamic Dijkstra pathfinding** with initial path caching and real-time recalculation on collision
+- **Predictive zone reservation** — tracks occupancy turn-by-turn to respect capacity constraints before they become collisions
+- **Traffic cost scaling** — route cost increases with congestion density, naturally distributing drones across alternative paths
+- **Zone type hierarchy** — `NormalZone`, `RestrictedZone`, `PriorityZone`, each with unique movement costs and capacity rules
+- **Connection capacity enforcement** — `max_link_capacity` limits simultaneous drone traversal per link
+- **Path optimization guard** — a drone only switches routes if the new path is strictly shorter than its remaining current route
+- **Real-time Pygame visualization** — see zones at capacity, drones in transit, and waiting states live
+- **Custom map support** — load any map file via CLI argument
+
+---
+
+## 🚀 Quick Start
+
+### Install dependencies
+
+```bash
 make install
 ```
-You can run the default pipeline using the Makefile:
-```
+
+### Run the default map
+
+```bash
 make run
 ```
-For use other map write:
-```
+
+### Run with a custom map
+
+```bash
 make run MAP=<file>
-```
-or
-```
+# or
 python3 -m fly_in <file>
 ```
 
-### Technical Choices
-1. Architecture:
+---
 
-	In compliance with the mandatory project constraints, the system is built on a robust Object-Oriented foundation. We have implemented a centralized data structure that manages the following core entities as specialized objects:
+## 🧠 How the Routing Engine Works
 
-	Zones (Hubs): Each zone is an instance of a class hierarchy (e.g., NormalZone, RestrictedZone, PriorityZone). These objects encapsulate their own specific logic, such as unique coordinates , movement costs , and real-time occupancy tracking based on max_drones capacity.
+```
+Simulation Start
+      │
+      ▼
+[1] Initial Dijkstra Pass
+    └─ Compute optimal path for each drone from start_hub → end_hub
+    └─ Cache paths to reduce per-turn overhead
 
-	Connections: These are treated as first-class objects that link two zones. They store metadata such as max_link_capacity , ensuring that the simulation respects the maximum number of drones allowed to traverse a specific path simultaneously.
+      │
+      ▼
+[2] Turn Loop
+    ├─ [2a] Predictive Reservation
+    │       └─ Reserve zones & links for planned moves (respects max_drones, max_link_capacity)
+    │
+    ├─ [2b] Traffic Cost Scaling
+    │       └─ Increase edge cost dynamically based on current density
+    │       └─ Forces subsequent drones onto less congested alternative routes
+    │
+    ├─ [2c] Move Drones
+    │       └─ Each drone advances along its cached path
+    │       └─ Restricted zones require 2 turns of connection transit
+    │
+    └─ [2d] Collision Check
+            └─ If a zone is unexpectedly occupied → trigger real-time Dijkstra recalc
+            └─ Switch only if new path length < remaining current path length
 
-	Drones: Each drone is an independent object with its own unique identifier (e.g., D1, D2). Drones maintain their current state, including their position in the graph, their active path, and their transit progress when moving through restricted zones.
+      │
+      ▼
+Simulation ends when all drones reach end_hub
+```
 
+---
 
-2. Pathfinding Algorithm:
+## 🗺️ Zone & Connection Types
 
-	To achieve optimal performance and minimize total simulation turns, the routing engine implements a dynamic pathfinding system based on Dijkstra's Algorithm:
+| Entity | Property | Description |
+|--------|----------|-------------|
+| `NormalZone` | Standard cost | Default movement, standard capacity |
+| `RestrictedZone` | Higher cost | Requires 2 turns to traverse (drone occupies connecting link) |
+| `PriorityZone` | Lower cost | Preferred routing, used as bypass under congestion |
+| Connection | `max_link_capacity` | Max drones allowed to traverse the link simultaneously |
+| Zone | `max_drones` | Max drones that can occupy the zone at once |
 
-	Initial Path Caching: At the start of the simulation, an initial Dijkstra pass calculates the optimal route from the start_hub to the end_hub for all drones. These paths are stored in a cache to reduce computational overhead during the simulation.
+---
 
-	Predictive Zone Reservation: To ensure fluid traffic flow and prevent the formation of queues, the algorithm implements a reservation system. This system tracks zone and connection occupancy turn-by-turn to respect all capacity constraints (max_drones and max_link_capacity).
+## 🏗️ Object-Oriented Architecture
 
-	Dynamic Traffic Cost Scaling: To prevent drones from crowding a single "shortest" path, the cost of a route increases dynamically based on its current traffic density. This forces subsequent drones to evaluate alternative "cheaper" paths that might be geographically longer but faster in terms of simulation turns.
-	Real-time Collision Avoidance: If a drone encounters an occupied zone that was not previously cleared , the algorithm triggers a real-time Dijkstra recalculation.
+The simulation is built on three core entity classes:
 
-	Path Optimization Logic: A drone will only switch to a newly calculated path if it is more efficient than the remaining portion of its current route (i.e., len(new_path) < len(current_remaining_path))
+**Zones** encapsulate their coordinates, movement cost, and real-time occupancy tracking. Subclasses override cost and transit duration logic.
 
+**Connections** are first-class objects linking two zones. They store `max_link_capacity` and track per-turn drone transit to enforce throughput limits.
 
-3. Visualization Engine:
+**Drones** are independent objects identified by ID (e.g. `D1`, `D2`). Each maintains its current position, active path cache, and transit progress when crossing restricted zones.
 
-	The choice of [Pygame / Terminal Colors] was made to provide an intuitive understanding of the drone fleet’s behavior.
-	Real-time Feedback: It allows peers to verify that drones correctly occupy connections toward restricted zones for exactly 2 turns.
-	State Monitoring: Visual cues make it easy to see when a zone is at maximum capacity or when a drone is waiting.
+---
+
+## 📁 Project Structure
+
+```
+Test_Dijkstra/
+├── src/                # Core simulation: zones, connections, drones, scheduler
+├── fly_in.py           # Entry point and CLI
+├── __init__.py
+├── requirements.txt    # pydantic, pygame, flake8, mypy
+├── Makefile
+└── README.md
+```
+
+---
+
+## 🛠️ Tech Stack
+
+| Component | Library |
+|-----------|---------|
+| Pathfinding | Custom Dijkstra implementation |
+| Visualization | `pygame` |
+| Data validation | `pydantic` |
+| Type checking | `mypy` |
+| Linting | `flake8` |
+| Package manager | `uv` |
+
+---
+
+## 📋 Requirements
+
+- Python ≥ 3.10
+- [`uv`](https://github.com/astral-sh/uv) installed
+- A display environment for Pygame (or terminal color mode)
+
+---
+
+## 📄 License
+
+This project is open source. See [LICENSE](LICENSE) for details.
