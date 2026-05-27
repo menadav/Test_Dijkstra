@@ -1,9 +1,5 @@
 # 🚁 Fly-in
 
-> A multi-drone traffic simulation in Python — Dijkstra-based pathfinding with dynamic rerouting, zone capacity constraints, and real-time visualization.
-
----
-
 ## Description
 
 **Fly-in** is a strategic simulation that solves a complex logistics challenge: routing a fleet of autonomous drones through a network of interconnected zones, from a starting hub to a final destination, **in the fewest turns possible**.
