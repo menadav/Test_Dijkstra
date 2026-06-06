@@ -1,5 +1,5 @@
 # Fly-in
-![demo](assets/fly.gif)
+![demo](assets/fly.mp4)
 ![moves](assets/moves.png)
 ## Description
 
